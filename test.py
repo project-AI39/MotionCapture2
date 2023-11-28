@@ -25,4 +25,14 @@ undistorted_images = image_correction.undistort_images(
     point_images, camera_matrix, distortion_coefficients
 )
 
-coler_marker_detection.get_marker_center_coordinates(undistorted_images)
+# マーカーの中心座標を取得
+center_coordinates_list = coler_marker_detection.get_marker_center_coordinates(
+    undistorted_images
+)
+
+# print(center_coordinates_list)
+for i, center_coordinates in enumerate(center_coordinates_list):
+    # i番目のカメラの中心座標のリストを取得
+    for j, center_coordinate in enumerate(center_coordinates):
+        # j番目のマーカーの中心座標を取得
+        print(f"{i}番目のカメラの{j}番目のマーカーの中心座標: {center_coordinate}")
