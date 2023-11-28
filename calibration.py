@@ -23,24 +23,46 @@ def calculate_camera_parameters(image_paths, pattern_size):
             img_points.append(corners)
 
             # チェスボードのコーナーを描写
-            cv2.drawChessboardCorners(img, pattern_size, corners, ret)
-            cv2.imshow("Chessboard Corners", img)
-            cv2.waitKey(1000)
+            # show1(img, pattern_size, corners, ret)
 
     # カメラ内部パラメータを算出
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
         obj_points, img_points, gray.shape[::-1], None, None
     )
 
-    show(mtx, dist)
+    # カメラ内部パラメータを表示
+    show2(mtx, dist)
 
     return mtx, dist
 
 
-def show(camera_matrix, distortion_coefficients):
+def show1(img, pattern_size, corners, ret):
+    # チェスボードのコーナーを描写
+    cv2.drawChessboardCorners(img, pattern_size, corners, ret)
+    cv2.imshow("Chessboard Corners", img)
+    cv2.waitKey(1000)
+
+
+def show2(camera_matrix, distortion_coefficients):
     # カメラ内部パラメータを表示
     print("カメラ内部パラメータ:")
     print("カメラ行列:")
     print(camera_matrix)
     print("歪み係数:")
     print(distortion_coefficients)
+
+
+def calculate_camera_parameters_list(calibration_image_paths_list, pattern_size):
+    # カメラ行列と歪み係数のリストを格納する変数
+    camera_matrix_list = []
+    distortion_coefficients_list = []
+
+    # 各キャリブレーション画像パスに対してカメラパラメータを計算し、リストに追加する
+    for calibration_image_paths in calibration_image_paths_list:
+        camera_matrix, distortion_coefficients = calculate_camera_parameters(
+            calibration_image_paths, pattern_size
+        )
+        camera_matrix_list.append(camera_matrix)
+        distortion_coefficients_list.append(distortion_coefficients)
+
+    return camera_matrix_list, distortion_coefficients_list

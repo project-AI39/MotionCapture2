@@ -11,10 +11,14 @@ def undistort_image(image, mtx, dist):
     return undistorted_image
 
 
-def undistort_images(image_paths, mtx, dist):
+def undistort_images(image_paths, camera_matrix_list, distortion_coefficients_list):
     # 複数の画像の歪みを補正する関数
     undistorted_images = []
-    for image_path in image_paths:
+    for image_path, mtx, dist in zip(
+        image_paths,
+        camera_matrix_list,
+        distortion_coefficients_list,
+    ):
         image = cv2.imread(image_path)
         undistorted_image = undistort_image(image, mtx, dist)
         undistorted_images.append(undistorted_image)

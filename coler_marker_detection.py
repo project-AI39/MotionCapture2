@@ -68,6 +68,16 @@ def get_marker_center_coordinates(undistorted_images):
 
         center_coordinates_list.append(center_coordinates)
 
-    print(center_coordinates_list)
+    show(center_coordinates_list)
 
     return center_coordinates_list
+
+
+def show(center_coordinates_list):
+    print("中心座標のリスト:")
+    print(center_coordinates_list)
+    for i, center_coordinates in enumerate(center_coordinates_list):
+        # i番目のカメラの中心座標のリストを取得
+        for j, center_coordinate in enumerate(center_coordinates):
+            # j番目のマーカーの中心座標を取得
+            print(f"{i}番目のカメラの{j}番目のマーカーの中心座標: {center_coordinate}")
