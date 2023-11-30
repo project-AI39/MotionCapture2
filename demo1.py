@@ -1,36 +1,61 @@
-"""
-Copyright 2023 ground0state
-Released under the MIT license
-
-https://qiita.com/ground0state/items/70ec4a6ffe337b800af3
-
-"""
-from os.path import join
-
-import cv2
 import numpy as np
+import cv2
 from scipy.linalg import svd
+import dd
 
-
-def get_sift_keypoints(img1, img2, n_matches=None):
-    sift = cv2.SIFT_create()
-    keypoints1, descriptors1 = sift.detectAndCompute(img1, None)
-    keypoints2, descriptors2 = sift.detectAndCompute(img2, None)
-
-    bf = cv2.BFMatcher()
-    matches = bf.match(descriptors1, descriptors2)
-    matches = sorted(matches, key=lambda x: x.distance)[:n_matches]
-    return keypoints1, keypoints2, matches
-
-
-def match_filter(keypoints1, keypoints2, matches):
-    match_points1, match_points2 = [], []
-    for i_match in matches:
-        match_points1.append(keypoints1[i_match.queryIdx].pt)
-        match_points2.append(keypoints2[i_match.trainIdx].pt)
-    match_points1 = np.array(match_points1).astype(np.float64)
-    match_points2 = np.array(match_points2).astype(np.float64)
-    return match_points1, match_points2, matches
+# カメラ1内部パラメータ
+A1 = cam1_camera_matrix = np.array(
+    [
+        [2.67126877e03, 0.00000000e00, 9.57917092e02],
+        [0.00000000e00, 2.67168557e03, 5.19849867e02],
+        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+    ]
+)
+# カメラ2内部パラメータ
+A2 = cam2_camera_matrix = np.array(
+    [
+        [2.67126877e03, 0.00000000e00, 9.57917092e02],
+        [0.00000000e00, 2.67168557e03, 5.19849867e02],
+        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+    ]
+)
+# 対応点2D座標(x,y)リスト
+# 画像1の特徴点
+keypoints1 = np.array(
+    [
+        [570.3806112702961, 453.00238777459407],
+        [602.1808873720137, 183.5551763367463],
+        [547.1986809563067, 949.5375103050288],
+        [570.3806112702961, 453.00238777459407],
+        [1373.1917577796467, 129.72918418839362],
+        [1318.5394144144145, 184.00225225225225],
+        [1373.235841081995, 949.2831783601015],
+        [1318.4018161180477, 894.9704880817253],
+        [960.1367690782953, 158.16352824578792],
+        [960.3856722276741, 348.6182531894014],
+        [960.3470588235294, 539.1539215686274],
+        [1152.3682132280355, 539.3899308983218],
+        [1344.000975609756, 539.3990243902439],
+    ]
+)
+# 画像2の特徴点
+keypoints2 = np.array(
+    [
+        [771.6197530864198, 514.2703703703704],
+        [873.8262032085562, 295.7486631016043],
+        [682.1353211009174, 800.0206422018349],
+        [771.6197530864198, 514.2703703703704],
+        [1067.6677631578948, 237.3371710526316],
+        [1258.7410881801127, 259.72232645403375],
+        [1067.7107438016528, 841.5619834710744],
+        [1258.813909774436, 819.2669172932331],
+        [960.1551362683438, 269.6687631027254],
+        [960.2348008385744, 404.50314465408803],
+        [960.1721991701245, 539.1597510373444],
+        [1059.8174757281554, 539.1825242718446],
+        [1166.9876543209878, 539.2257495590829],
+    ]
+)
 
 
 def normalize_points(homo_points):
@@ -208,63 +233,95 @@ def recover_pose_opencv(E, points1, points2):
 if __name__ == "__main__":
     # Parameters ---------------
     seed = 0
-    data_dir = "."
-    image1_name = "sample1.jpg"
-    image2_name = "sample2.jpg"
-    n_matches = 100
     verbose = 0
 
-    # 前回求めた内部パラメータ
-    A = np.array(
-        [
-            [3.46557471e03, -5.10312233e00, 9.54708195e02],
-            [0.00000000e00, 3.23967055e03, 9.37249336e01],
-            [0.00000000e00, 0.00000000e00, 1.00000000e00],
-        ]
-    )
-    # --------------------------
-
-    img1 = cv2.imread(join(data_dir, image1_name), cv2.IMREAD_COLOR)
-    img2 = cv2.imread(join(data_dir, image2_name), cv2.IMREAD_COLOR)
-
-    # 画像の対応する点を求める
-    img1_gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-    img2_gray = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
-    keypoints1, keypoints2, matches = get_sift_keypoints(
-        img1_gray, img2_gray, n_matches
-    )
-
-    match_img = cv2.drawMatches(
-        img1,
-        keypoints1,
-        img2,
-        keypoints2,
-        matches,
-        None,
-        flags=cv2.DrawMatchesFlags_NOT_DRAW_SINGLE_POINTS,
-    )
-    cv2.imwrite("match_image.jpg", match_img)
-
     # F行列を推定する
-    match_points1, match_points2, matches = match_filter(
-        keypoints1, keypoints2, matches
-    )
-    F = find_fundamental_matrix(match_points1, match_points2, verbose=verbose)
-    F_, mask = cv2.findFundamentalMat(
-        match_points1, match_points2, method=cv2.FM_8POINT
-    )
+    keypoints1 = keypoints1.astype(np.float64)
+    keypoints2 = keypoints2.astype(np.float64)
+
+    F = find_fundamental_matrix(keypoints1, keypoints2, verbose=verbose)
+    F_, mask = cv2.findFundamentalMat(keypoints1, keypoints2, method=cv2.FM_8POINT)
     rmse = np.sqrt(np.mean((F - F_) ** 2))
     print("OpenCVとの差 RMSE:", rmse)
 
     # E行列への変換
-    E = A.T @ F @ A
-    R, t = recover_pose(E, match_points1, match_points2)
+    E = A2.T @ F @ A1
+    R, t = recover_pose(E, keypoints1, keypoints2)
     # OpenCVの場合
-    E_ = A.T @ F_ @ A
-    R_, t_ = recover_pose_opencv(E_, match_points1, match_points2)
+    E_ = A2.T @ F_ @ A1
+    R_, t_ = recover_pose_opencv(E_, keypoints1, keypoints2)
+
+    print("E行列(scipy):")
+    print(E)
+    print("R行列(scipy):")
+    print(R)
+    print("tベクトル(scipy):")
+    print(t)
+    print("E行列(OpenCV):")
+    print(E_)
+    print("R行列(OpenCV):")
+    print(R_)
+    print("tベクトル(OpenCV):")
+    print(t_)
 
     rmse = np.sqrt(np.mean((R - R_) ** 2))
     print("OpenCVとの差 RMSE:", rmse)
 
     rmse = np.sqrt(np.mean((t - t_.reshape(-1)) ** 2))
     print("OpenCVとの差 RMSE:", rmse)
+
+
+# 正しいカメラパラメータを使って三角測量を行う
+def triangulate2(pts1, pts2, A1, A2, R, t):
+    # カメラ座標系をワールド座標系に変換する行列
+    R1 = np.eye(3)
+    t1 = np.zeros((3, 1))
+    P1 = np.hstack((R1, t1))
+
+    R2 = R
+    t2 = t.reshape((3, 1))
+    P2 = np.hstack((R2, t2))
+
+    # カメラ行列をプロジェクション行列に変換
+    proj_mat1 = A1 @ P1
+    proj_mat2 = A2 @ P2
+
+    # 三角測量
+    points_4d_homogeneous = cv2.triangulatePoints(proj_mat1, proj_mat2, pts1.T, pts2.T)
+    points_3d_homogeneous = points_4d_homogeneous / points_4d_homogeneous[3, :]
+
+    # 3D座標を取得
+    points_3d = points_3d_homogeneous[:3, :].T
+
+    return points_3d
+
+
+# # 3D座標を計算
+# A1_ = A2_ = np.array(
+#     [
+#         [1.0, 0.0, 0.0],
+#         [0.0, 1.0, 0.0],
+#         [0.0, 0.0, 1.0],
+#     ]
+# )
+R1 = np.eye(3)
+t1 = np.zeros((3, 1))
+P1 = np.hstack((R1, t1))
+
+R2 = R
+t2 = t.reshape((3, 1))
+P2 = np.hstack((R2, t2))
+points_3d = triangulate2(keypoints1, keypoints2, A1, A2, R, t)
+# points_3d = triangulate(P1, P2, keypoints1, keypoints2)
+
+print("計算された3D座標:")
+print(points_3d)
+
+
+dd.plot_3d_points_with_arrows(
+    points_3d,
+    np.zeros((3, 1)),
+    [0, 0, 0],
+    t,
+    dd.rotation_matrix_to_rotation_vector(R),
+)
